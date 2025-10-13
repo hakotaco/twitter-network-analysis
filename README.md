@@ -74,26 +74,6 @@ Output files:
 # Open .graphml files in Cytoscape: https://cytoscape.org/
 ```
 
-**For small networks or samples:** Use the visualization script
-```bash
-# Visualize top 100 most engaged users and their connections
-python visualize.py --top 100
-
-# Visualize random sample of 500 nodes
-python visualize.py --sample 500
-
-# Visualize saved network file
-python visualize.py output/untrusted_sources_network.gexf
-```
-
-### 3. Use Individual Functions
-
-See `example_usage.py` for detailed examples:
-
-```bash
-python example_usage.py
-```
-
 ## Data Format
 
 ### Tweet CSV Format
