@@ -57,12 +57,18 @@ venv.bak/
 .idea/
 *.swp
 *.swo
+context.txt
 *~
 .DS_Store
 
 # Jupyter Notebook
 .ipynb_checkpoints
-
+test_functions.py
+ug.md
+qr.md
+ps.md
+eu.py
+data/
 # pyenv
 .python-version
 

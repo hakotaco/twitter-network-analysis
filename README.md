@@ -1,5 +1,13 @@
 # twitter-network-analysis
-Social network analysis performed on a dataset of tweets from one day during Covid. Part of the Social Network Analysis course.
+Social network analysis of Twitter retweet and reply cascades during Covid. Includes analysis of misinformation spread from untrusted news sources.
+
+## Features
+
+- **Engagement Cascade Graphs**: Build directed networks of retweets and replies with node weights based on likes + retweets
+- **Cascade Tracing**: Trace any retweet/reply back to its original parent tweet
+- **Multiple Cluster Analysis**: Handle multiple independent cascades in a single graph
+- **Untrusted Source Detection**: Filter and analyze tweets containing domains from untrusted news sources
+- **Comprehensive Statistics**: Analyze network properties, engagement patterns, and information spread
 
 ## Setup
 
@@ -27,68 +35,159 @@ twitter-network-analysis/
 ├── src/
 │   └── network_utils.py    # Helper functions for network analysis
 ├── data/
-│   └── sample_edges.csv    # Sample data (replace with your own)
+│   ├── tweet_ids--2021-03-01.csv    # Tweet data
+│   └── untrusted_sources.csv       # Untrusted domain list
 ├── analysis.py             # Main analysis script
+├── example_usage.py        # Usage examples
 ├── requirements.txt        # Python dependencies
 └── README.md              # This file
 ```
 
-## Usage
+## Quick Start
 
-### Preparing Your Data
+### 1. Run Full Analysis
 
-Place your CSV data file in the `data/` directory. The CSV should contain edge information with at least two columns:
-- A source node column (e.g., 'source', 'from', 'user')
-- A target node column (e.g., 'target', 'to', 'mentioned_user')
-- Optionally, a weight column for weighted graphs
-
-Example CSV format:
-```csv
-source,target
-user1,user2
-user1,user3
-user2,user3
-```
-
-### Running the Analysis
-
-1. Update `analysis.py` to point to your CSV file and specify the correct column names
-2. Run the analysis:
 ```bash
 python analysis.py
 ```
 
-### Using the Helper Functions
+This will:
+- Create a network of ALL retweets and replies
+- Weight nodes by engagement (likes + retweets)
+- Filter tweets containing untrusted sources
+- Create a separate network for untrusted source tweets
+- Compare both networks
+- **Export networks to `output/` directory for visualization**
 
-The `src/network_utils.py` module provides several helper functions:
+Output files:
+- `output/full_network.gexf` - Full network (for Gephi)
+- `output/full_network.graphml` - Full network (for Cytoscape)
+- `output/full_network_stats.txt` - Network statistics
+- `output/full_network_nodes.csv` - Node-level data
+- `output/untrusted_sources_network.*` - Untrusted sources network
 
-- `load_csv_data(filepath)`: Load data from a CSV file
-- `create_graph_from_edges(df, source_col, target_col, directed, weight_col)`: Create a NetworkX graph from edge data
-- `get_basic_stats(G)`: Get basic statistics about a graph
-- `print_graph_stats(G)`: Print graph statistics
+### 2. Visualize Networks
 
-Example usage:
-```python
-from src.network_utils import load_csv_data, create_graph_from_edges, print_graph_stats
-
-# Load data
-df = load_csv_data('data/your_data.csv')
-
-# Create graph
-G = create_graph_from_edges(df, source_col='source', target_col='target', directed=True)
-
-# Print statistics
-print_graph_stats(G)
-
-# Perform your analysis
-# ...
+**For large networks (>1000 nodes):** Use exported files with specialized tools
+```bash
+# Open .gexf files in Gephi: https://gephi.org/
+# Open .graphml files in Cytoscape: https://cytoscape.org/
 ```
+
+**For small networks or samples:** Use the visualization script
+```bash
+# Visualize top 100 most engaged users and their connections
+python visualize.py --top 100
+
+# Visualize random sample of 500 nodes
+python visualize.py --sample 500
+
+# Visualize saved network file
+python visualize.py output/untrusted_sources_network.gexf
+```
+
+### 3. Use Individual Functions
+
+See `example_usage.py` for detailed examples:
+
+```bash
+python example_usage.py
+```
+
+## Data Format
+
+### Tweet CSV Format
+
+Your tweet CSV should include these columns:
+- `tweet_id`: Unique tweet identifier
+- `author_id`: User who posted the tweet
+- `reference_type`: Type of reference ('retweeted' or 'replied_to')
+- `reference_id`: ID of the original tweet being referenced
+- `like_count`: Number of likes
+- `retweet_count`: Number of retweets
+- `text`: Tweet text content
+- `urls`: URLs in the tweet
+
+Example:
+```csv
+id,tweet_id,author_id,like_count,retweet_count,reference_type,reference_id,text,urls,...
+0,1366176845561962503,14914686,4,0,replied_to,1366173564957843458,"@user text...",#,...
+```
+
+### Untrusted Sources CSV Format
+
+- `Domain`: Domain name of untrusted source (e.g., '100percentfedup.com')
+- Additional metadata columns (optional)
+
+## Key Functions
+
+### `create_engagement_cascade_graph()`
+Creates a directed graph where:
+- **Edges**: Represent retweets or replies (from current user → original author)
+- **Node Weights**: Sum of likes and retweets for each user's tweets
+- **Multiple Cascades**: Each weakly connected component is a separate cascade
+
+### `analyze_cascade_stats()`
+Returns statistics including:
+- Number of cascades
+- Average/max/min cascade size
+- Total engagement
+- Retweet vs reply edge counts
+
+### `filter_tweets_with_untrusted_sources()`
+Filters tweets that contain untrusted source domains in:
+- Tweet URLs
+- Tweet text content
+
+### `get_cascade_roots()`
+Identifies original tweets that started cascades (nodes with in-degree=0, out-degree>0)
+
+### `trace_cascade_path()`
+Traces a retweet/reply chain back to its original parent tweet
+
+## Network Structure
+
+The networks are **directed graphs** where:
+- **Direction**: Edge from A → B means "A retweeted/replied to B"
+- **Node Weight**: Total engagement (likes + retweets) for that user's tweets
+- **Edge Types**: Labeled as 'retweeted' or 'replied_to'
+- **Cascades**: Each weakly connected component represents one cascade/conversation thread
+
+## Example Usage
+
+```python
+from src.network_utils import (
+    load_csv_data,
+    create_engagement_cascade_graph,
+    analyze_cascade_stats,
+    filter_tweets_with_untrusted_sources,
+    load_untrusted_domains
+)
+
+# Load and analyze full network
+df = load_csv_data('data/tweet_ids--2021-03-01.csv')
+G = create_engagement_cascade_graph(df)
+stats = analyze_cascade_stats(G)
+
+# Analyze untrusted sources
+untrusted_domains = load_untrusted_domains('data/untrusted_sources.csv')
+filtered_df = filter_tweets_with_untrusted_sources(df, untrusted_domains)
+G_untrusted = create_engagement_cascade_graph(filtered_df)
+```
+
+## Use Cases
+
+- Study information diffusion patterns
+- Identify influential users and superspreaders
+- Analyze misinformation propagation
+- Compare engagement between credible and untrusted sources
+- Trace viral content back to origins
+- Measure cascade depth and breadth
 
 ## Dependencies
 
 - NetworkX: Graph analysis library
 - Pandas: Data manipulation and CSV loading
-- NumPy: Numerical computations
 - Matplotlib: Visualization (optional, for plotting)
 
 See `requirements.txt` for specific versions.
