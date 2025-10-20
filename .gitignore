@@ -69,9 +69,13 @@ qr.md
 ps.md
 eu.py
 data/
+abc.tex
+.gitignore
 # pyenv
 .python-version
 
 # Data files (uncomment if you want to exclude large datasets)
 # *.csv
 # data/
+output/
+analysis_output.txt
