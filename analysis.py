@@ -1,6 +1,8 @@
 import sys
 import os
 import networkx as nx
+import pandas as pd
+import matplotlib.pyplot as plt
 
 # Add src directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
@@ -14,6 +16,51 @@ from network_utils import (
     filter_tweets_with_untrusted_sources,
     quick_export,
 )
+
+def longitudinal_analysis(df, network_type, save_dir = "output"):
+    """
+    Analyze tweet activity over time (hourly basis) and plot engagement peaks.
+
+    Args:
+        df: DataFrame containing tweet data 
+        network_type: Label for the dataset 
+        save_dir: Directory to save the plot
+    """
+
+    print("\n" + "=" * 70)
+    print("Longitudinal Analysis for {network_type}")
+    print("=" * 70)
+
+
+    #  convert to utc datetime
+    df["created_at"] = pd.to_datetime(df["created_at"], errors = "coerce", utc = True)
+    df = df.dropna(subset = ["created_at"])
+
+    # get hour floor
+    df["hour"] = df["created_at"].dt.floor("H")
+
+    # calculate engagement as sum of retweets and replies
+    df["engagement"] = df["retweet_count"].fillna(0) + df["reply_count"].fillna(0)
+
+    # group by hour
+    hourly_activity = df.groupby("hour")["engagement"].sum().reset_index()
+
+    # plot
+    plt.figure(figsize = (10, 5))
+    plt.plot(hourly_activity["hour"], hourly_activity["engagement"], marker = "o", color = "red")
+    plt.title(f"Engagement Activity Over Time — {network_type}")
+    plt.xlabel("Hour")
+    plt.ylabel("Total Engagement (Retweets + Replies)")
+    plt.xticks(rotation = 45)
+    plt.tight_layout()
+
+    # save to output directory
+    os.makedirs(save_dir, exist_ok = True)
+    plot_path = os.path.join(save_dir, f"{network_type.lower().replace(' ', '_')}_activity.png")
+    plt.savefig(plot_path)
+    plt.close()
+
+    print(f"  Saved activity plot to {plot_path}")
 
 
 def analyze_full_network(df, show_plot=False):
@@ -244,20 +291,29 @@ def main():
     print(f"  Total tweets: {len(df)}")
     print(f"  Columns: {', '.join(df.columns.tolist())}")
 
-    # PART 1: Analyze full retweet and reply network
+    # Analyze full retweet and reply network
     G_full = analyze_full_network(df, show_plot=False)
+    
+    # Longitudinal analysis for full network
+    longitudinal_analysis(df, network_type = "Full Network", save_dir = "output")
 
-    # PART 2: Analyze untrusted sources network (if file exists)
+    # Analyze untrusted sources network (if file exists)
     G_untrusted = None
     if untrusted_sources_file:
         G_untrusted = analyze_untrusted_sources_network(
             df, untrusted_sources_file, show_plot=False
         )
 
-        # PART 3: Compare networks
+         # Longitudinal analysis for untrusted sources network
+        untrusted_domains = load_untrusted_domains(untrusted_sources_file)
+        df_untrusted = filter_tweets_with_untrusted_sources(df, untrusted_domains)
+        if not df_untrusted.empty:
+            longitudinal_analysis(df_untrusted, network_type = "Untrusted Sources Network", save_dir = "output")
+
+        # Compare networks
         compare_networks(G_full, G_untrusted)
 
-    # PART 4: Export networks for visualization in Gephi/Cytoscape
+    # Export networks for visualization in Gephi/Cytoscape
     print("\n" + "=" * 70)
     print("EXPORTING NETWORKS FOR VISUALIZATION")
     print("=" * 70)
