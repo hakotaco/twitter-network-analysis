@@ -47,8 +47,8 @@ def print_cliques_summary(G):
     sizes = sorted(counts.keys())
     values = [counts[s] for s in sizes]
 
-    x, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
-    ax1.bar(sizes, values, color='C0', edgecolor='k', alpha = 0.8)
+    x, (ax1, ax2) = plt.subplots(1, 2, figsize = (12, 4))
+    ax1.bar(sizes, values, color = 'C0', edgecolor = 'k', alpha = 0.8)
     ax1.set_xlabel('Clique size (k)')
     ax1.set_ylabel('Number of cliques')
     ax1.set_title('Clique counts by size')
@@ -59,7 +59,7 @@ def print_cliques_summary(G):
     ax2.set_ylabel('Number of cliques (log scale)')
     ax2.set_title('Clique counts by size (log)')
 
-    xticks = sizes if len(sizes) <= 40 else np.linspace(min(sizes), max(sizes), 20, dtype=int)
+    xticks = sizes if len(sizes) <= 40 else np.linspace(min(sizes), max(sizes), 20, dtype = int)
     ax1.set_xticks(xticks)
     ax2.set_xticks(xticks)
 
@@ -67,52 +67,84 @@ def print_cliques_summary(G):
     plt.show()
 
 
-def detect_communities_and_bridges(G, top_k = 20):
+def detect_communities_and_bridges(G, top_k = 20, top_n_communities = 5):
     """
-    detects communities in the undirected graph G using the Louvain method, identifies bridge nodes connecting different communities,
-    and ranks them by betweenness centrality.
+    Applies Louvian community detection on graph G, identifies bridge nodes,
+    and computes clustering coefficients after community detection.
     """
-    # convert to undirected graph
     G_undirected = G.to_undirected()
-    
-    # Louvian algorithm
-    print("Running Louvain community detection...")
+
+    print("Running Louvain community detection:")
     communities = louvain_communities(G_undirected, seed=42)
     print(f"Detected {len(communities)} communities.")
 
-    # map nodes to their communities
+    # Map nodes to community
     node_to_comm = {}
     for i, comm in enumerate(communities):
         for node in comm:
             node_to_comm[node] = i
 
-    # bridge nodes identification
+    # clustering coefficients
+    print("Computing clustering coefficients per community:")
+    community_clustering = {}
+
+    for i, comm in enumerate(communities):
+        subgraph = G_undirected.subgraph(comm)
+        if subgraph.number_of_nodes() == 0:
+            continue
+        # Compute clustering for this subgraph only
+        clustering_values = nx.clustering(subgraph)
+        avg_clust = np.mean(list(clustering_values.values()))
+        community_clustering[i] = avg_clust
+
+    # find top communities
+    top_by_size = sorted(communities, key = len, reverse = True)[:top_n_communities]
+    top_by_clustering = sorted(
+        community_clustering.items(), key = lambda x: x[1], reverse=True
+    )[:top_n_communities]
+
+    print(f"\nTop {top_n_communities} communities by size:")
+    for i, comm in enumerate(top_by_size, 1):
+        print(f"  {i}. Community #{communities.index(comm)} - {len(comm)} nodes")
+
+    print(f"\nTop {top_n_communities} communities by average clustering coefficient:")
+    for i, (comm_id, coeff) in enumerate(top_by_clustering, 1):
+        print(f"  {i}. Community #{comm_id} - Avg Clustering: {coeff:.4f}")
+
+    # find bridges
     bridge_nodes = set()
     for u, v in G_undirected.edges():
         if node_to_comm.get(u) != node_to_comm.get(v):
             bridge_nodes.add(u)
             bridge_nodes.add(v)
 
-    print(f"Identified {len(bridge_nodes)} bridge nodes connecting different communities.")
+    print(f"\nIdentified {len(bridge_nodes)} bridge nodes connecting different communities.")
 
-    # rank bridge nodes by betweenness centrality
-    print("Computing betweenness centrality for bridge nodes...")
-    bc = nx.betweenness_centrality(G_undirected, normalized = True)
-    top_bridges = sorted([(n, bc[n]) for n in bridge_nodes], key = lambda x: x[1], reverse = True)[:top_k]
+    # Betweenness centrality for bridge nodes
+    print("Computing betweenness centrality for bridge nodes:")
+    bc = nx.betweenness_centrality(G_undirected, normalized=True, k=min(500, G_undirected.number_of_nodes()))
+    top_bridges = sorted(
+        [(n, bc[n]) for n in bridge_nodes], key=lambda x: x[1], reverse=True
+    )[:top_k]
 
     print(f"\nTop {top_k} bridge nodes by betweenness centrality:")
     for node, score in top_bridges:
         print(f"  Node {node}: {score:.5f}")
 
-    return bridge_nodes, top_bridges, communities
+    return {
+        "communities": communities,
+        "community_clustering": community_clustering,
+        "bridge_nodes": bridge_nodes,
+        "top_bridges": top_bridges,
+    }
 
 
-def compute_pagerank(G, top_k=20):
+
+def compute_pagerank(G, top_k = 20):
     """
     computes PageRank for the directed graph G and prints the top_k nodes by PageRank score.
     """
-    DG = G.to_directed()  
-    pagerank = nx.pagerank(DG, alpha=0.85)  
+    pagerank = nx.pagerank(G, alpha=0.85)  
 
     top_pr = sorted(pagerank.items(), key=lambda x: x[1], reverse=True)[:top_k]
     print(f"\nTop {top_k} nodes by PageRank:")
@@ -150,9 +182,6 @@ def main():
 
     compute_pagerank(G_untrusted)
     
-
-    
-    print("hello world")
 
 if __name__ == "__main__":
     main()
