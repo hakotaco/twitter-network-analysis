@@ -38,6 +38,7 @@ twitter-network-analysis/
 │   ├── tweet_ids--2021-03-01.csv    # Tweet data
 │   └── untrusted_sources.csv       # Untrusted domain list
 ├── analysis.py             # Main analysis script
+├── analysis_2.py           # Second part of the analysis
 ├── example_usage.py        # Usage examples
 ├── requirements.txt        # Python dependencies
 └── README.md              # This file
@@ -65,6 +66,15 @@ Output files:
 - `output/full_network_stats.txt` - Network statistics
 - `output/full_network_nodes.csv` - Node-level data
 - `output/untrusted_sources_network.*` - Untrusted sources network
+
+```bash
+python analysis_2.py
+```
+Run this script only after running analysis.py first.
+This will:
+- Analyze both networks for cliques
+- Apply the PageRank algorithm on both networks
+- Apply Louvian community detection on the graphs, identify bridge nodes, and computes clustering coefficients after community detection.
 
 ### 2. Visualize Networks
 
